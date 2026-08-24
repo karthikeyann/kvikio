@@ -81,8 +81,20 @@ class CurlHandle {
  private:
   char _errbuf[CURL_ERROR_SIZE];
   LibCurl::UniqueHandlePtr _handle;
+  std::function<void()> _on_retry;
 
  public:
+  /**
+   * @brief Register work to run before each retry inside `perform()`.
+   *
+   * A retry re-issues the whole request, so any state the write callback
+   * accumulated during the failed attempt has to be rolled back first.
+   * Without this, a transfer that times out part way through resumes with a
+   * write offset already advanced, overflows the caller's buffer, and turns a
+   * retryable timeout into a fatal `CURLE_WRITE_ERROR`.
+   */
+  void set_on_retry(std::function<void()> on_retry);
+
   /**
    * @brief Construct a new curl handle.
    *

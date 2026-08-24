@@ -781,6 +781,15 @@ std::size_t RemoteHandle::read(void* buf, std::size_t size, std::size_t file_off
   detail::CallbackContext ctx{buf, size};
   curl.setopt(CURLOPT_WRITEDATA, &ctx);
 
+  // A retry replays the whole range request, so the bytes already accepted by
+  // this attempt must be forgotten first. Otherwise the replay writes past the
+  // caller's buffer and the callback fails the transfer outright, which turns
+  // an ordinary timeout under load into a hard error.
+  curl.set_on_retry([&ctx] {
+    ctx.offset         = 0;
+    ctx.overflow_error = false;
+  });
+
   try {
     if (is_host_mem) {
       curl.perform();
